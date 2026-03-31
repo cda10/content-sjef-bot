@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rink-white: #f0f4f8;
+  --rink-blue: #1e6fba;
+  --rink-red: #cc2936;
+  --rink-crease: #8ecae6;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #111827;
+  color: #f9fafb;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
