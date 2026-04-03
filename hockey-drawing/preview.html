@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoalGetr - Hockey Route Drawing</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#111827;color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+.header{display:flex;align-items:center;justify-content:space-between;padding:6px 16px;background:#030712;border-bottom:1px solid #1f2937}
+.header .logo{display:flex;align-items:center;gap:8px}
+.header .dot{width:8px;height:8px;border-radius:50%;background:#38bdf8}
+.header .title{font-size:14px;font-weight:600;color:#e5e7eb}
+.header .sub{font-size:12px;color:#6b7280;margin-left:4px}
+.header .count{font-size:12px;color:#6b7280}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:8px 16px;background:rgba(17,24,39,.95);border-bottom:1px solid rgba(55,65,81,.6)}
+.toolbar .sep{width:1px;height:24px;background:#4b5563}
+.btn{padding:4px 10px;font-size:13px;border:none;border-radius:6px;font-weight:500;cursor:pointer;transition:all .15s;background:rgba(55,65,81,.6);color:#e5e7eb}
+.btn:hover{background:rgba(75,85,99,.7);transform:scale(1.05)}
+.btn.active{background:#0ea5e9;color:#fff;box-shadow:0 4px 6px rgba(14,165,233,.3)}
+.btn.sm{padding:3px 8px;font-size:11px}
+.btn.danger{background:rgba(127,29,29,.4);color:#fca5a5}
+.btn.danger:hover{background:rgba(127,29,29,.5)}
+.btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.color-btn{width:20px;height:20px;border-radius:50%;border:2px solid #4b5563;cursor:pointer;transition:transform .15s}
+.color-btn:hover{transform:scale(1.1)}
+.color-btn.active{border-color:#fff;transform:scale(1.1)}
+.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden}
+.canvas-wrap svg{width:100%;max-height:calc(100vh - 90px);filter:drop-shadow(0 25px 25px rgba(0,0,0,.5))}
+.statusbar{display:flex;align-items:center;justify-content:space-between;padding:4px 16px;background:#030712;border-top:1px solid #1f2937;font-size:11px;color:#6b7280}
+.toolbar .thickness{display:flex;align-items:center;gap:6px}
+.toolbar .thickness span{font-size:11px;color:#9ca3af}
+.toolbar .thickness input{width:64px;height:4px;accent-color:#38bdf8}
+.btn-group{display:flex;gap:4px}
+.spacer{flex:1}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">
+    <div class="dot"></div>
+    <span class="title">GoalGetr</span>
+    <span class="sub">Route Drawing Prototype</span>
+  </div>
+  <span class="count" id="pathCount">0 paths</span>
+</div>
+<div class="toolbar" id="toolbar">
+  <div class="btn-group">
+    <button class="btn" id="modeSelect" title="Select & Edit (V)" onclick="setMode('select')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 1l10 5.5L7 8l-1.5 6z"/></svg>
+    </button>
+    <button class="btn active" id="modePoint" title="Point Path (P)" onclick="setMode('point')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="3" cy="12" r="2"/><circle cx="8" cy="4" r="2"/><circle cx="13" cy="10" r="2"/><path d="M4 11 Q 7 3, 12 9"/></svg>
+    </button>
+    <button class="btn" id="modeFreehand" title="Freehand (F)" onclick="setMode('freehand')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12 Q 5 4, 8 8 Q 11 12, 14 5"/></svg>
+    </button>
+  </div>
+  <div class="sep"></div>
+  <div class="btn-group" id="styleButtons">
+    <button class="btn sm active" data-style="solid" title="Solid" onclick="setStyle('solid')">
+      <svg width="28" height="12" viewBox="0 0 28 12"><line x1="2" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+    </button>
+    <button class="btn sm" data-style="dashed" title="Dashed" onclick="setStyle('dashed')">
+      <svg width="28" height="12" viewBox="0 0 28 12"><line x1="2" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="2.5" stroke-dasharray="5 3" stroke-linecap="round"/></svg>
+    </button>
+    <button class="btn sm" data-style="puckWave" title="Puck" onclick="setStyle('puckWave')">
+      <svg width="28" height="12" viewBox="0 0 28 12"><path d="M 2 6 Q 6 2, 10 6 Q 14 10, 18 6 Q 22 2, 26 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="btn sm" data-style="backward" title="Back" onclick="setStyle('backward')">
+      <svg width="28" height="12" viewBox="0 0 28 12"><line x1="2" y1="6" x2="26" y2="6" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3" stroke-linecap="round"/><line x1="8" y1="2" x2="8" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="2" x2="16" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+    <button class="btn sm" data-style="backwardPuck" title="Back+Puck" onclick="setStyle('backwardPuck')">
+      <svg width="28" height="12" viewBox="0 0 28 12"><path d="M 2 6 Q 6 2, 10 6 Q 14 10, 18 6 Q 22 2, 26 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="2" x2="8" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="20" y1="2" x2="20" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+  </div>
+  <div class="sep"></div>
+  <div class="btn-group" id="colorButtons"></div>
+  <div class="sep"></div>
+  <div class="thickness">
+    <span>W</span>
+    <input type="range" min="1" max="6" step="0.5" value="3" id="thicknessSlider" oninput="setThickness(this.value)">
+    <span id="thicknessVal">3</span>
+  </div>
+  <button class="btn sm active" id="arrowBtn" title="Toggle arrowhead" onclick="toggleArrow()">
+    <svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 6h10M11 6l-4-4M11 6l-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <div class="sep"></div>
+  <button class="btn sm" id="togglePtBtn" disabled title="Toggle smooth/corner (T)" onclick="togglePointType()">S/C</button>
+  <button class="btn sm danger" id="delPtBtn" disabled title="Delete point" onclick="deletePoint()">-Pt</button>
+  <button class="btn sm danger" id="delPathBtn" disabled title="Delete path" onclick="deletePath()">Del</button>
+  <div class="spacer"></div>
+  <div class="btn-group">
+    <button class="btn sm" id="undoBtn" disabled title="Undo (Ctrl+Z)" onclick="doUndo()">&#8617;</button>
+    <button class="btn sm" id="redoBtn" disabled title="Redo (Ctrl+Shift+Z)" onclick="doRedo()">&#8618;</button>
+    <button class="btn sm danger" title="Clear all" onclick="clearAll()">Clear</button>
+  </div>
+</div>
+<div class="canvas-wrap">
+  <svg id="mainSvg" viewBox="0 0 1000 425" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
+<div class="statusbar">
+  <span id="modeHint">Click to place points. Double-click or Enter to finish. Esc to cancel. [P]</span>
+  <span id="selectionInfo"></span>
+</div>
+<script>
+// ── State ──────────────────────────────────────────────────
+const RINK_W=1000, RINK_H=425;
+const COLORS=['#cc2936','#1e6fba','#000000','#16a34a','#d97706','#7c3aed'];
+const HINTS={select:'Click a path to select. Drag points to edit. [V]',point:'Click to place points. Double-click or Enter to finish. Esc to cancel. [P]',freehand:'Click and drag to draw. Release to beautify. [F]'};
+
+let paths=[], mode='point', curStyle='solid', curColor='#cc2936', curThickness=3, curArrow=true;
+let selectedPathId=null, selectedPointIdx=null, activePath=null;
+let isDragging=false, dragInfo=null, isDrawingFreehand=false, freehandPts=[];
+let mousePos=null;
+let undoStack=[], redoStack=[];
+
+// ── Vector math ────────────────────────────────────────────
+const vSub=(a,b)=>({x:a.x-b.x,y:a.y-b.y});
+const vLen=v=>Math.sqrt(v.x*v.x+v.y*v.y);
+const vDist=(a,b)=>vLen(vSub(a,b));
+const vNorm=v=>{const l=vLen(v);return l===0?{x:0,y:0}:{x:v.x/l,y:v.y/l}};
+const vPerp=v=>({x:-v.y,y:v.x});
+const vScale=(v,s)=>({x:v.x*s,y:v.y*s});
+
+function genId(){return 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)}
+
+// ── Auto handles (Catmull-Rom style) ───────────────────────
+function computeHandles(pts){
+  if(pts.length<2)return pts;
+  return pts.map((pt,i)=>{
+    if(pt.type==='corner')return{...pt,hIn:null,hOut:null};
+    const prev=pts[i-1],next=pts[i+1];
+    if(!prev&&!next)return pt;
+    let tx,ty;
+    if(!prev){tx=next.x-pt.x;ty=next.y-pt.y}
+    else if(!next){tx=pt.x-prev.x;ty=pt.y-prev.y}
+    else{tx=(next.x-prev.x)*0.5;ty=(next.y-prev.y)*0.5}
+    const t=0.35;
+    return{...pt,
+      hIn:prev?{x:pt.x-tx*t,y:pt.y-ty*t}:null,
+      hOut:next?{x:pt.x+tx*t,y:pt.y+ty*t}:null};
+  });
+}
+
+// ── SVG path from points ───────────────────────────────────
+function buildPath(points){
+  if(points.length===0)return '';
+  if(points.length===1)return `M ${points[0].x} ${points[0].y}`;
+  const pts=computeHandles(points);
+  let d=`M ${pts[0].x} ${pts[0].y}`;
+  for(let i=1;i<pts.length;i++){
+    const prev=pts[i-1],curr=pts[i];
+    const cp1=prev.hOut||prev,cp2=curr.hIn||curr;
+    const hasCurve=(prev.hOut&&(prev.hOut.x!==prev.x||prev.hOut.y!==prev.y))||
+                   (curr.hIn&&(curr.hIn.x!==curr.x||curr.hIn.y!==curr.y));
+    if(hasCurve)d+=` C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${curr.x} ${curr.y}`;
+    else d+=` L ${curr.x} ${curr.y}`;
+  }
+  return d;
+}
+
+// ── Sample points along path ───────────────────────────────
+function samplePath(points,n){
+  if(points.length<2)return points.map(p=>({x:p.x,y:p.y}));
+  const pts=computeHandles(points);
+  const samples=[];
+  const segs=pts.length-1;
+  const perSeg=Math.max(2,Math.ceil(n/segs));
+  for(let i=0;i<segs;i++){
+    const p0=pts[i],p3=pts[i+1];
+    const p1=p0.hOut||p0,p2=p3.hIn||p3;
+    for(let j=0;j<=perSeg;j++){
+      if(i>0&&j===0)continue;
+      const t=j/perSeg,mt=1-t;
+      samples.push({
+        x:mt*mt*mt*p0.x+3*mt*mt*t*p1.x+3*mt*t*t*p2.x+t*t*t*p3.x,
+        y:mt*mt*mt*p0.y+3*mt*mt*t*p1.y+3*mt*t*t*p2.y+t*t*t*p3.y
+      });
+    }
+  }
+  return samples;
+}
+
+// ── Wave path ──────────────────────────────────────────────
+function buildWave(points,amp,freq){
+  const samples=samplePath(points,200);
+  if(samples.length<2)return '';
+  let d=`M ${samples[0].x} ${samples[0].y}`,cum=0;
+  for(let i=1;i<samples.length;i++){
+    const dx=samples[i].x-samples[i-1].x,dy=samples[i].y-samples[i-1].y;
+    cum+=Math.sqrt(dx*dx+dy*dy);
+    const dir=vNorm({x:dx,y:dy}),perp=vPerp(dir);
+    const w=Math.sin(cum*freq*Math.PI*2)*amp;
+    d+=` L ${samples[i].x+perp.x*w} ${samples[i].y+perp.y*w}`;
+  }
+  return d;
+}
+
+// ── Backward marks SVG ─────────────────────────────────────
+function buildBackwardMarks(points,color,thick){
+  const samples=samplePath(points,200);
+  if(samples.length<2)return '';
+  let svg='',cum=0;const sp=12,ml=6;
+  for(let i=1;i<samples.length;i++){
+    const dx=samples[i].x-samples[i-1].x,dy=samples[i].y-samples[i-1].y;
+    cum+=Math.sqrt(dx*dx+dy*dy);
+    if(cum>=sp){
+      cum-=sp;
+      const dir=vNorm({x:dx,y:dy}),perp=vPerp(dir);
+      svg+=`<line x1="${samples[i].x+perp.x*ml}" y1="${samples[i].y+perp.y*ml}" x2="${samples[i].x-perp.x*ml}" y2="${samples[i].y-perp.y*ml}" stroke="${color}" stroke-width="${thick*0.6}" stroke-linecap="round"/>`;
+    }
+  }
+  return svg;
+}
+
+// ── RDP simplify ───────────────────────────────────────────
+function perpDist(pt,a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,lenSq=dx*dx+dy*dy;
+  if(lenSq===0)return vDist(pt,a);
+  let t=((pt.x-a.x)*dx+(pt.y-a.y)*dy)/lenSq;
+  t=Math.max(0,Math.min(1,t));
+  return vDist(pt,{x:a.x+t*dx,y:a.y+t*dy});
+}
+function rdp(pts,eps){
+  if(pts.length<=2)return pts;
+  let mx=0,mi=0;
+  for(let i=1;i<pts.length-1;i++){
+    const d=perpDist(pts[i],pts[0],pts[pts.length-1]);
+    if(d>mx){mx=d;mi=i}
+  }
+  if(mx>eps){
+    const l=rdp(pts.slice(0,mi+1),eps),r=rdp(pts.slice(mi),eps);
+    return[...l.slice(0,-1),...r];
+  }
+  return[pts[0],pts[pts.length-1]];
+}
+
+// ── Freehand beautification ────────────────────────────────
+function beautify(raw){
+  if(raw.length<2)return raw.map(p=>({x:p.x,y:p.y,type:'smooth'}));
+  let total=0;
+  for(let i=1;i<raw.length;i++)total+=vDist(raw[i],raw[i-1]);
+  if(total<20)return[{x:raw[0].x,y:raw[0].y,type:'corner'},{x:raw[raw.length-1].x,y:raw[raw.length-1].y,type:'corner'}];
+  const eps=Math.max(3,total*0.015);
+  let simplified=rdp(raw,eps);
+  // Check straight
+  let straight=true;
+  for(let i=1;i<simplified.length-1;i++){
+    if(perpDist(simplified[i],simplified[0],simplified[simplified.length-1])>8){straight=false;break}
+  }
+  if(straight)return[{x:simplified[0].x,y:simplified[0].y,type:'corner'},{x:simplified[simplified.length-1].x,y:simplified[simplified.length-1].y,type:'corner'}];
+  // Smooth
+  for(let iter=0;iter<2;iter++){
+    const next=[simplified[0]];
+    for(let i=1;i<simplified.length-1;i++){
+      next.push({x:simplified[i-1].x*.25+simplified[i].x*.5+simplified[i+1].x*.25,
+                 y:simplified[i-1].y*.25+simplified[i].y*.5+simplified[i+1].y*.25});
+    }
+    next.push(simplified[simplified.length-1]);
+    simplified=next;
+  }
+  let result=rdp(simplified,Math.max(2,total*0.01));
+  if(result.length>15)result=rdp(result,total*0.02);
+  return result.map((p,i)=>{
+    if(i===0||i===result.length-1)return{x:p.x,y:p.y,type:'corner'};
+    const prev=result[i-1],next=result[i+1];
+    const v1=vSub(p,prev),v2=vSub(next,p);
+    const l1=vLen(v1),l2=vLen(v2);
+    if(l1<1||l2<1)return{x:p.x,y:p.y,type:'smooth'};
+    const dot=(v1.x*v2.x+v1.y*v2.y)/(l1*l2);
+    return{x:p.x,y:p.y,type:dot<0.3?'corner':'smooth'};
+  });
+}
+
+// ── Persistence ────────────────────────────────────────────
+function save(){try{localStorage.setItem('goalgetr_hockey_routes',JSON.stringify(paths))}catch(e){}}
+function load(){try{const r=localStorage.getItem('goalgetr_hockey_routes');if(r)paths=JSON.parse(r)}catch(e){}}
+
+// ── Undo/Redo ──────────────────────────────────────────────
+function snapshot(){
+  undoStack.push(JSON.stringify({paths,selectedPathId,selectedPointIdx}));
+  if(undoStack.length>50)undoStack.shift();
+  redoStack=[];
+  updateUndoButtons();
+}
+function doUndo(){
+  if(!undoStack.length)return;
+  redoStack.push(JSON.stringify({paths,selectedPathId,selectedPointIdx}));
+  const s=JSON.parse(undoStack.pop());
+  paths=s.paths;selectedPathId=s.selectedPathId;selectedPointIdx=s.selectedPointIdx;
+  save();render();updateUndoButtons();updateEditButtons();
+}
+function doRedo(){
+  if(!redoStack.length)return;
+  undoStack.push(JSON.stringify({paths,selectedPathId,selectedPointIdx}));
+  const s=JSON.parse(redoStack.pop());
+  paths=s.paths;selectedPathId=s.selectedPathId;selectedPointIdx=s.selectedPointIdx;
+  save();render();updateUndoButtons();updateEditButtons();
+}
+function updateUndoButtons(){
+  document.getElementById('undoBtn').disabled=!undoStack.length;
+  document.getElementById('redoBtn').disabled=!redoStack.length;
+}
+
+// ── Mode / style / color / controls ────────────────────────
+function setMode(m){
+  mode=m;
+  if(m!=='select'){selectedPathId=null;selectedPointIdx=null}
+  if(activePath&&m!=='point'){activePath=null}
+  document.getElementById('modeSelect').classList.toggle('active',m==='select');
+  document.getElementById('modePoint').classList.toggle('active',m==='point');
+  document.getElementById('modeFreehand').classList.toggle('active',m==='freehand');
+  document.getElementById('modeHint').textContent=HINTS[m];
+  document.getElementById('mainSvg').style.cursor=m==='select'?'default':'crosshair';
+  updateEditButtons();render();
+}
+function setStyle(s){
+  curStyle=s;
+  document.querySelectorAll('#styleButtons .btn').forEach(b=>b.classList.toggle('active',b.dataset.style===s));
+  if(selectedPathId){
+    const p=paths.find(p=>p.id===selectedPathId);
+    if(p){p.style=s;save();render()}
+  }
+}
+function setColor(c){
+  curColor=c;
+  document.querySelectorAll('.color-btn').forEach(b=>b.classList.toggle('active',b.dataset.color===c));
+  if(selectedPathId){
+    const p=paths.find(p=>p.id===selectedPathId);
+    if(p){p.color=c;save();render()}
+  }
+}
+function setThickness(v){
+  curThickness=parseFloat(v);
+  document.getElementById('thicknessVal').textContent=v;
+  if(selectedPathId){
+    const p=paths.find(p=>p.id===selectedPathId);
+    if(p){p.thickness=curThickness;save();render()}
+  }
+}
+function toggleArrow(){
+  curArrow=!curArrow;
+  document.getElementById('arrowBtn').classList.toggle('active',curArrow);
+  if(selectedPathId){
+    const p=paths.find(p=>p.id===selectedPathId);
+    if(p){p.arrowhead=curArrow;save();render()}
+  }
+}
+function togglePointType(){
+  if(!selectedPathId||selectedPointIdx===null)return;
+  const p=paths.find(p=>p.id===selectedPathId);
+  if(!p)return;
+  snapshot();
+  const pt=p.points[selectedPointIdx];
+  pt.type=pt.type==='smooth'?'corner':'smooth';
+  save();render();
+}
+function deletePoint(){
+  if(!selectedPathId||selectedPointIdx===null)return;
+  const p=paths.find(p=>p.id===selectedPathId);
+  if(!p)return;
+  snapshot();
+  if(p.points.length<=2){paths=paths.filter(pp=>pp.id!==selectedPathId);selectedPathId=null;selectedPointIdx=null}
+  else{p.points.splice(selectedPointIdx,1);selectedPointIdx=null}
+  save();render();updateEditButtons();
+}
+function deletePath(){
+  if(!selectedPathId)return;
+  snapshot();
+  paths=paths.filter(p=>p.id!==selectedPathId);
+  selectedPathId=null;selectedPointIdx=null;
+  save();render();updateEditButtons();
+}
+function clearAll(){
+  if(!paths.length)return;
+  snapshot();
+  paths=[];selectedPathId=null;selectedPointIdx=null;activePath=null;
+  save();render();updateEditButtons();
+}
+function updateEditButtons(){
+  document.getElementById('togglePtBtn').disabled=selectedPointIdx===null;
+  document.getElementById('delPtBtn').disabled=selectedPointIdx===null;
+  document.getElementById('delPathBtn').disabled=!selectedPathId;
+  document.getElementById('pathCount').textContent=paths.length+' path'+(paths.length!==1?'s':'');
+  let info='';
+  if(selectedPathId){
+    const p=paths.find(p=>p.id===selectedPathId);
+    if(p)info=`Selected: ${p.points.length} pts`;
+  }
+  if(selectedPointIdx!==null)info+=` | Point ${selectedPointIdx+1} [T: toggle, Del: remove]`;
+  document.getElementById('selectionInfo').textContent=info;
+}
+
+// ── Init colors ────────────────────────────────────────────
+function initColors(){
+  const wrap=document.getElementById('colorButtons');
+  COLORS.forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className='color-btn'+(c===curColor?' active':'');
+    btn.dataset.color=c;
+    btn.style.backgroundColor=c;
+    btn.title=c;
+    btn.onclick=()=>setColor(c);
+    wrap.appendChild(btn);
+  });
+}
+
+// ── Rink SVG ───────────────────────────────────────────────
+function rinkSVG(){
+  const CX=500,CY=212.5;
+  const foDots=[[220,CY-100],[220,CY+100],[780,CY-100],[780,CY+100],[175,CY-95],[175,CY+95],[825,CY-95],[825,CY+95]];
+  const foCircles=[[175,CY-95],[175,CY+95],[825,CY-95],[825,CY+95]];
+  let s=`<rect x="0" y="0" width="1000" height="425" rx="70" ry="70" fill="#f0f4f8" stroke="#1a1a2e" stroke-width="3"/>`;
+  s+=`<line x1="500" y1="0" x2="500" y2="425" stroke="#cc2936" stroke-width="2.5" stroke-dasharray="12 8"/>`;
+  s+=`<line x1="295" y1="0" x2="295" y2="425" stroke="#1e6fba" stroke-width="4"/>`;
+  s+=`<line x1="705" y1="0" x2="705" y2="425" stroke="#1e6fba" stroke-width="4"/>`;
+  s+=`<line x1="55" y1="35" x2="55" y2="390" stroke="#cc2936" stroke-width="2"/>`;
+  s+=`<line x1="945" y1="35" x2="945" y2="390" stroke="#cc2936" stroke-width="2"/>`;
+  s+=`<circle cx="500" cy="${CY}" r="35" fill="none" stroke="#1e6fba" stroke-width="2"/>`;
+  s+=`<circle cx="500" cy="${CY}" r="4" fill="#1e6fba"/>`;
+  foCircles.forEach(([cx,cy])=>{s+=`<circle cx="${cx}" cy="${cy}" r="35" fill="none" stroke="#cc2936" stroke-width="1.5"/>`});
+  foDots.forEach(([cx,cy])=>{s+=`<circle cx="${cx}" cy="${cy}" r="3.5" fill="#cc2936"/>`});
+  // Creases
+  s+=`<path d="M 55 ${CY-22} A 22 22 0 0 1 55 ${CY+22} L 55 ${CY-22} Z" fill="#8ecae6" fill-opacity="0.35" stroke="#cc2936" stroke-width="1.2"/>`;
+  s+=`<path d="M 945 ${CY-22} A 22 22 0 0 0 945 ${CY+22} L 945 ${CY-22} Z" fill="#8ecae6" fill-opacity="0.35" stroke="#cc2936" stroke-width="1.2"/>`;
+  // Nets
+  s+=`<rect x="30" y="${CY-12}" width="25" height="24" rx="3" fill="none" stroke="#888" stroke-width="1.5"/>`;
+  s+=`<rect x="945" y="${CY-12}" width="25" height="24" rx="3" fill="none" stroke="#888" stroke-width="1.5"/>`;
+  return s;
+}
+
+// ── Render path SVG ────────────────────────────────────────
+function renderPathSVG(path,isSelected,selPtIdx){
+  const{id,points,style,color,thickness:th,arrowhead}=path;
+  if(points.length<2)return '';
+  const d=buildPath(points);
+  const mid=`arrow-${id}`;
+  let s='';
+  // Arrow marker
+  if(arrowhead){
+    s+=`<marker id="${mid}" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="10" markerHeight="8" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 0 0 L 14 5 L 0 10 Z" fill="${color}"/></marker>`;
+  }
+  const me=arrowhead?`marker-end="url(#${mid})"`:''
+  // Selection highlight
+  if(isSelected)s+=`<path d="${d}" fill="none" stroke="#38bdf8" stroke-width="${th+4}" stroke-linecap="round" stroke-linejoin="round" opacity="0.3" pointer-events="none"/>`;
+  // Hit area
+  s+=`<path d="${d}" fill="none" stroke="transparent" stroke-width="${Math.max(th+12,18)}" stroke-linecap="round" data-pathid="${id}" class="path-hit" style="cursor:pointer"/>`;
+  // Visible path
+  switch(style){
+    case 'dashed':
+      s+=`<path d="${d}" fill="none" stroke="${color}" stroke-width="${th}" stroke-dasharray="${th*3} ${th*2}" stroke-linecap="round" stroke-linejoin="round" ${me} pointer-events="none"/>`;break;
+    case 'puckWave':{
+      const wd=buildWave(points,5+th*0.5,0.06);
+      s+=`<path d="${wd}" fill="none" stroke="${color}" stroke-width="${th}" stroke-linecap="round" stroke-linejoin="round" ${me} pointer-events="none"/>`;break;
+    }
+    case 'backward':
+      s+=`<path d="${d}" fill="none" stroke="${color}" stroke-width="${th}" stroke-dasharray="${th*2.5} ${th*1.5}" stroke-linecap="round" stroke-linejoin="round" ${me} pointer-events="none"/>`;
+      s+=buildBackwardMarks(points,color,th);break;
+    case 'backwardPuck':{
+      const bwd=buildWave(points,4+th*0.3,0.055);
+      s+=`<path d="${bwd}" fill="none" stroke="${color}" stroke-width="${th}" stroke-linecap="round" stroke-linejoin="round" ${me} pointer-events="none"/>`;
+      s+=buildBackwardMarks(points,color,th);break;
+    }
+    default:
+      s+=`<path d="${d}" fill="none" stroke="${color}" stroke-width="${th}" stroke-linecap="round" stroke-linejoin="round" ${me} pointer-events="none"/>`;
+  }
+  // Edit points & segment inserts
+  if(isSelected){
+    // Segment midpoints
+    for(let i=0;i<points.length-1;i++){
+      const a=points[i],b=points[i+1];
+      const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+      s+=`<circle cx="${mx}" cy="${my}" r="5" fill="#38bdf8" fill-opacity="0.5" stroke="#0ea5e9" stroke-width="1" data-pathid="${id}" data-segidx="${i}" class="seg-insert" style="cursor:crosshair"/>`;
+    }
+    // Points
+    points.forEach((pt,i)=>{
+      const isSel=selPtIdx===i;
+      s+=`<circle cx="${pt.x}" cy="${pt.y}" r="12" fill="transparent" data-pathid="${id}" data-ptidx="${i}" class="pt-handle" style="cursor:grab"/>`;
+      s+=`<circle cx="${pt.x}" cy="${pt.y}" r="${isSel?6:5}" fill="${isSel?'#38bdf8':'#fff'}" stroke="${isSel?'#0ea5e9':'#475569'}" stroke-width="2" pointer-events="none"/>`;
+      if(pt.type==='corner'){
+        s+=`<rect x="${pt.x-3.5}" y="${pt.y-3.5}" width="7" height="7" fill="${isSel?'#38bdf8':'#fff'}" stroke="${isSel?'#0ea5e9':'#475569'}" stroke-width="1.5" pointer-events="none" transform="rotate(45,${pt.x},${pt.y})"/>`;
+      }
+    });
+  }
+  return s;
+}
+
+// ── Main render ────────────────────────────────────────────
+function render(){
+  const svg=document.getElementById('mainSvg');
+  let s=rinkSVG();
+  paths.forEach(p=>{
+    s+=renderPathSVG(p,p.id===selectedPathId,p.id===selectedPathId?selectedPointIdx:null);
+  });
+  // Active path preview (point mode)
+  if(activePath&&activePath.points.length>=1){
+    if(activePath.points.length>=2){
+      s+=`<path d="${buildPath(activePath.points)}" fill="none" stroke="${activePath.color}" stroke-width="${activePath.thickness}" stroke-linecap="round" stroke-linejoin="round" opacity="0.7" pointer-events="none"/>`;
+    }
+    if(mousePos){
+      const last=activePath.points[activePath.points.length-1];
+      s+=`<line x1="${last.x}" y1="${last.y}" x2="${mousePos.x}" y2="${mousePos.y}" stroke="${activePath.color}" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.5" pointer-events="none"/>`;
+    }
+    activePath.points.forEach(pt=>{
+      s+=`<circle cx="${pt.x}" cy="${pt.y}" r="4" fill="#fff" stroke="${activePath.color}" stroke-width="2" pointer-events="none"/>`;
+    });
+  }
+  // Freehand preview
+  if(isDrawingFreehand&&freehandPts.length>=2){
+    s+=`<path d="M ${freehandPts.map(p=>p.x+' '+p.y).join(' L ')}" fill="none" stroke="${curColor}" stroke-width="${curThickness}" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" stroke-dasharray="3 3" pointer-events="none"/>`;
+  }
+  svg.innerHTML=s;
+  updateEditButtons();
+}
+
+// ── SVG coords ─────────────────────────────────────────────
+function svgPos(e){
+  const svg=document.getElementById('mainSvg');
+  const r=svg.getBoundingClientRect();
+  const cx=e.touches?e.touches[0]?.clientX??e.changedTouches?.[0]?.clientX??0:e.clientX;
+  const cy=e.touches?e.touches[0]?.clientY??e.changedTouches?.[0]?.clientY??0:e.clientY;
+  return{x:(cx-r.left)/r.width*RINK_W,y:(cy-r.top)/r.height*RINK_H};
+}
+
+// ── Event handlers ─────────────────────────────────────────
+function onSvgDown(e){
+  const pos=svgPos(e);
+  const t=e.target;
+
+  // Point handle drag
+  if(t.classList.contains('pt-handle')){
+    e.stopPropagation();e.preventDefault();
+    const pid=t.dataset.pathid,pi=parseInt(t.dataset.ptidx);
+    selectedPathId=pid;selectedPointIdx=pi;
+    isDragging=true;dragInfo={pathId:pid,pointIndex:pi};
+    snapshot();
+    render();return;
+  }
+  // Segment insert
+  if(t.classList.contains('seg-insert')){
+    e.stopPropagation();
+    const pid=t.dataset.pathid,si=parseInt(t.dataset.segidx);
+    const p=paths.find(p=>p.id===pid);
+    if(p){
+      snapshot();
+      const a=p.points[si],b=p.points[si+1];
+      p.points.splice(si+1,0,{x:(a.x+b.x)/2,y:(a.y+b.y)/2,type:'smooth'});
+      selectedPointIdx=si+1;
+      save();render();
+    }
+    return;
+  }
+  // Path click
+  if(t.classList.contains('path-hit')){
+    e.stopPropagation();
+    const pid=t.dataset.pathid;
+    const p=paths.find(p=>p.id===pid);
+    if(p){
+      selectedPathId=pid;selectedPointIdx=null;
+      curStyle=p.style;curColor=p.color;curThickness=p.thickness;curArrow=p.arrowhead;
+      // Update UI
+      document.querySelectorAll('#styleButtons .btn').forEach(b=>b.classList.toggle('active',b.dataset.style===p.style));
+      document.querySelectorAll('.color-btn').forEach(b=>b.classList.toggle('active',b.dataset.color===p.color));
+      document.getElementById('thicknessSlider').value=p.thickness;
+      document.getElementById('thicknessVal').textContent=p.thickness;
+      document.getElementById('arrowBtn').classList.toggle('active',p.arrowhead);
+      if(mode!=='select')setMode('select');
+      else render();
+    }
+    return;
+  }
+
+  // Canvas click
+  if(mode==='freehand'){
+    isDrawingFreehand=true;freehandPts=[pos];return;
+  }
+  if(mode==='point'){
+    if(!activePath){
+      activePath={id:genId(),points:[{x:pos.x,y:pos.y,type:'smooth'}],style:curStyle,color:curColor,thickness:curThickness,arrowhead:curArrow};
+    } else {
+      activePath.points.push({x:pos.x,y:pos.y,type:'smooth'});
+    }
+    render();return;
+  }
+  if(mode==='select'){
+    selectedPathId=null;selectedPointIdx=null;render();
+  }
+}
+
+function onSvgDblClick(e){
+  if(mode==='point'&&activePath){finishActivePath()}
+}
+
+function onMove(e){
+  const pos=svgPos(e);
+  mousePos=pos;
+  if(isDrawingFreehand){freehandPts.push(pos);render();return}
+  if(isDragging&&dragInfo){
+    const p=paths.find(p=>p.id===dragInfo.pathId);
+    if(p){p.points[dragInfo.pointIndex].x=pos.x;p.points[dragInfo.pointIndex].y=pos.y;render()}
+    return;
+  }
+  if(activePath)render(); // update guide line
+}
+
+function onUp(e){
+  if(isDrawingFreehand){
+    isDrawingFreehand=false;
+    if(freehandPts.length>=2){
+      snapshot();
+      const pts=beautify(freehandPts);
+      const p={id:genId(),points:pts,style:curStyle,color:curColor,thickness:curThickness,arrowhead:curArrow};
+      paths.push(p);selectedPathId=p.id;selectedPointIdx=null;
+      setMode('select');save();
+    }
+    freehandPts=[];render();return;
+  }
+  if(isDragging){isDragging=false;dragInfo=null;save()}
+}
+
+function finishActivePath(){
+  if(activePath&&activePath.points.length>=2){
+    snapshot();paths.push(activePath);selectedPathId=activePath.id;selectedPointIdx=null;
+    activePath=null;setMode('select');save();render();
+  } else {activePath=null;render()}
+}
+
+// ── Keyboard ───────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  const ctrl=e.ctrlKey||e.metaKey;
+  if(e.key==='v'||e.key==='V'){setMode('select');return}
+  if(e.key==='p'||e.key==='P'){setMode('point');return}
+  if(e.key==='f'||e.key==='F'){setMode('freehand');return}
+  if(e.key==='Escape'){if(activePath){activePath=null;render()}else{selectedPathId=null;selectedPointIdx=null;render()}return}
+  if(e.key==='Enter'&&activePath){finishActivePath();return}
+  if(e.key==='Delete'||e.key==='Backspace'){
+    if(selectedPointIdx!==null)deletePoint();
+    else if(selectedPathId)deletePath();
+    return;
+  }
+  if(ctrl&&e.key==='z'&&!e.shiftKey){e.preventDefault();doUndo();return}
+  if(ctrl&&(e.key==='Z'||(e.key==='z'&&e.shiftKey))){e.preventDefault();doRedo();return}
+  if(e.key==='t'||e.key==='T'){togglePointType();return}
+});
+
+// ── Init ───────────────────────────────────────────────────
+function init(){
+  initColors();load();
+  const svg=document.getElementById('mainSvg');
+  svg.addEventListener('mousedown',onSvgDown);
+  svg.addEventListener('touchstart',onSvgDown,{passive:false});
+  svg.addEventListener('dblclick',onSvgDblClick);
+  window.addEventListener('mousemove',onMove);
+  window.addEventListener('touchmove',onMove,{passive:false});
+  window.addEventListener('mouseup',onUp);
+  window.addEventListener('touchend',onUp);
+  svg.style.cursor='crosshair';
+  render();updateUndoButtons();
+}
+init();
+</script>
+</body>
+</html>
